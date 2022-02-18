@@ -1,4 +1,6 @@
+<!-- ./public/index.html -->
 <!DOCTYPE html>
+<html>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap');
 
@@ -7,81 +9,182 @@ body {
   margin: 5%;
 }
 </style>
+	
+  <head>
+    <title>First website</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <!-- Include jquery, cookies, socket.io (client-side) and your own code -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="https://unpkg.com/cookie_js@1.2.2/cookie.min.js"></script>
+    <script src="https://unpkg.com/socket.io-client@2/dist/socket.io.slim.js"></script>
+    <script src="javascript.js"></script>
+  </body>
+</html>
 
-<div id="chat">
-	<div id="chat-messages">
+<main>
+  <header>
+    <div class="user-count">0</div>
+    <h1>Чат комната</h1>
+  </header>
 
-	<form id="chat-form" method="post">
-		<input type="text" name="message" placeholder="Введите сообщение..." maxlength="500" autocomplete="off">
-		<button type="submit">Отправить</button>
- 	</form>
-</div>
+  <section class="chat">
+
+  </section>
+
+  <form>
+    <input type="text" placeholder="Сообщение" />
+    <button>Отправить</button>
+  </form>
+</main>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap');
+
+/* ./public/style.css */
+* {
+  box-sizing: border-box;
+  transition: all .3s ease;
+}
+
+html, body {
+  background: #eee;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+main {
+  width: calc(100% - 20px);
+  max-width: 500px;
+  margin: 0 auto;
+  font-family: 'Roboto';
+}
+
+h1, .user-count {
+  margin: 0;
+  padding: 10px 0;
+  font-size: 32px;
+}
+
+.user-count {
+  float: right;
+}
+
+.chat {
+  content: '';
+  width: 100%;
+  height: calc(100vh - 165px);
+  background: white;
+  padding: 5px 10px;
+}
+
+.chat p {
+  margin: 0 0 5px 0;
+}
+
+input, button {
+  width: 100%;
+  font: inherit;
+  background: #fff;
+  border: none;
+  margin-top: 10px;
+  padding: 5px 10px;
+}
+
+button:hover {
+  cursor: pointer;
+  background: #ddd;
+}
+
+@media all and (min-width: 500px) {
+  .chat {
+    height: calc(100vh - 140px);
+  }
+  input {
+    width: calc(100% - 160px);
+  }
+  button {
+    float: right;
+    width: 150px;
+  }
+}
+</style>
 
 <script>
-var ws_uri = "ws://sweress.github.io/chatroom/:9600";
-var websocket = new WebSocket(ws_uri);
+// /public/javascript.js
 
-// on websocket open:
-websocket.onopen = function(event) {
-	MessageAdd('<div class="message green">Вы присоединились...</div>');
-};
+// Get the current username from the cookies
+var user = cookie.get('user');
+if (!user) {
 
-// on websocket close:
-websocket.onclose = function(event) {
-	MessageAdd('<div class="message blue">Ошибка сети. Вы были отстранены от комнаты.</div>');
-};
+  // Ask for the username if there is none set already
+  user = prompt('Choose a username:');
+  if (!user) {
+    alert('We cannot work with you like that!');
+  } else {
+    // Store it in the cookies for future use
+    cookie.set('user', user);
+  }
+}
 
-// on websocket error:
-websocket.onerror = function(event) {
-	MessageAdd('<div class="message red">Попытка подключения оказалась проваленной.</div>');
-};
-
-websocket.onmessage = function(event) {
-	var data = JSON.parse(event.data);
-
-	if (data.type == "message") {
-		MessageAdd('<div class="message">' + data.username + ': ' + data.message + '</div>');
- 	}
-};
-
-document.getElementById("chat-form").addEventListener("submit", function(event) {
-	event.preventDefault();
-
-	var message_element = document.getElementsByTagName("input")[0];
-	var message = message_element.value;
-
-	if (message.toString().length) {
-		var username = localStorage.getItem("username");
-		
-		var data = {
-			type: "message",
-			username: username,
-			message: message
-		};
-
-		websocket.send(JSON.stringify(data));
-		message_element.value = "";
-	}
-}, false);
-
-function Username() {
-	var username = window.prompt("Введи свой ник:", "");
+// Connect to the server-side websockets. But there's no server yet!
+var socket = io();
 	
-	if (username.toString().length > 2) {
-		localStorage.setItem("username", username);
-	}
-	else {
-		alert("Ник должен содержать как минимум 2 символа.");
-		Username();
-	}
-}
+// The user count. Can change when someone joins/leaves
+socket.on('count', function (data) {
+  $('.user-count').html(data);
+});
 
-Username();
+// When we receive a message
+// it will be like { user: 'username', message: 'text' }
+socket.on('message', function (data) {
+  $('.chat').append('<p><strong>' + data.user + '</strong>: ' + data.message + '</p>');
+});
+	
+// When the form is submitted
+$('form').submit(function (e) {
+  // Avoid submitting it through HTTP
+  e.preventDefault();
 
-function MessageAdd(message) {
-	var chat_messages = document.getElementById("chat-messages");
+  // Retrieve the message from the user
+  var message = $(e.target).find('input').val();
 
-	chat_messages.insertAdjacentHTML("beforeend", message);
-	chat_messages.scrollTop = chat_messages.scrollHeight;
-}
-</sript>
+  // Send the message to the server
+  socket.emit('message', {
+    user: cookie.get('user') || 'Anonymous',
+    message: message
+  });
+
+  // Clear the input and focus it for a new message
+  e.target.reset();
+  $(e.target).find('input').focus();
+});
+</script>
+
+<script>
+const server = require('server');
+const { get, socket } = server.router;
+const { render } = server.reply;
+
+// Update everyone with the current user count
+const updateCounter = ctx => {
+  ctx.io.emit('count', Object.keys(ctx.io.sockets.sockets).length);
+};
+
+// Send the new message to everyone
+const sendMessage = ctx => {
+  ctx.io.emit('message', ctx.data);
+};
+
+server([
+  get('/', ctx => render('index.html')),
+  socket('connect', updateCounter),
+  socket('disconnect', updateCounter),
+  socket('message', sendMessage)
+]);
+</script>
